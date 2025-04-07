@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FoodGuard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f9f9f9;
+            color: #000;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #d32f2f; /* Vermelho */
+            color: white;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .back-btn {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .content.active {
+            display: block;
+        }
+        
+        .home-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+        }
+        
+        .home-content h1 {
+            color: #d32f2f;
+            margin-bottom: 20px;
+        }
+        
+        .home-content p {
+            margin-bottom: 30px;
+            max-width: 80%;
+        }
+        
+        .footer {
+            background-color: #388e3c; /* Verde */
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .footer-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 14px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        
+        .footer-btn i {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .footer-btn.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Estilos para o scanner de QR Code */
+        #scanner-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #qr-video {
+            width: 100%;
+            height: 300px;
+            background-color: #000;
+            margin-bottom: 10px;
+        }
+        
+        #qr-canvas {
+            display: none;
+        }
+        
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #d32f2f;
+            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .scanner-line {
+            height: 2px;
+            width: 100%;
+            background-color: #388e3c;
+            animation: scan 2s infinite linear;
+        }
+        
+        @keyframes scan {
+            0% { transform: translateY(-100px); }
+            100% { transform: translateY(100px); }
+        }
+        
+        .product-info {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .product-info h3 {
+            color: #d32f2f;
+            margin-bottom: 10px;
+        }
+        
+        .expiry-info {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        
+        .expiry-days {
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .expiry-good {
+            color: #388e3c;
+        }
+        
+        .expiry-warning {
+            color: #ffa000;
+        }
+        
+        .expiry-danger {
+            color: #d32f2f;
+        }
+        
+        .expiry-label {
+            flex: 1;
+        }
+        
+        /* Estilos para o histórico */
+        .search-bar {
+            margin-bottom: 15px;
+        }
+        
+        .search-bar input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .history-item {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .history-item .product-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .history-item .expiry-date {
+            color: #d32f2f;
+            font-size: 14px;
+        }
+        
+        .history-item .scan-date {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        /* Estilos para criação de QR Code */
+        #qrcode-content input, #qrcode-content select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        #qrcode-result {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        #qrcode-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+        }
+        
+        /* Notificações */
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #d32f2f;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+        }
+        
+        /* Botões */
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px 0;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            background-color: #d32f2f;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: #388e3c;
+            color: white;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i></button>
+        <h1>FoodGuard</h1>
+    </div>
+    
+    <!-- Conteúdo da Home -->
+    <div class="content active" id="home-content">
+        <div class="home-content">
+            <h1>Bem-vindo ao FoodGuard</h1>
+            <p>Controle a validade dos seus alimentos e evite o desperdício</p>
+            <div style="margin-top: 30px; text-align: center;">
+                <i class="fas fa-qrcode" style="font-size: 60px; color: #388e3c;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Conteúdo do Scanner -->
+    <div class="content" id="scanner-content">
+        <h2>Escaneie o QR Code</h2>
+        <div id="scanner-container">
+            <video id="qr-video"></video>
+            <canvas id="qr-canvas"></canvas>
+            <div class="scanner-overlay">
+                <div class="scanner-line"></div>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" id="startScanner">Iniciar Scanner</button>
+            <button class="btn btn-secondary" id="stopScanner" disabled>Parar Scanner</button>
+        </div>
+        
+        <div class="product-info" id="product-info">
+            <h3 id="product-name">Nome do Produto</h3>
+            <div class="expiry-info">
+                <div class="expiry-days" id="expiry-days">10</div>
+                <div class="expiry-label" id="expiry-label">dias para vencer</div>
+            </div>
+            <div id="expiry-date">Vencimento: 15/12/2023</div>
+            <button class="btn btn-primary" id="save-product">Salvar no Histórico</button>
+        </div>
+    </div>
+    
+    <!-- Conteúdo do Histórico -->
+    <div class="content" id="history-content">
+        <h2>Histórico de Produtos</h2>
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Pesquisar produtos...">
+        </div>
+        <div id="history-list">
+            <!-- Itens de histórico serão adicionados dinamicamente -->
+        </div>
+    </div>
+    
+    <!-- Conteúdo de Criação de QR Code -->
+    <div class="content" id="qrcode-content">
+        <h2>Criar QR Code</h2>
+        <input type="text" id="product-name-input" placeholder="Nome do Produto">
+        <input type="date" id="expiry-date-input" placeholder="Data de Validade">
+        <button class="btn btn-primary" id="generate-qrcode">Gerar QR Code</button>
+        <div id="qrcode-result">
+            <!-- QR Code será exibido aqui -->
+        </div>
+    </div>
+    
+    <!-- Conteúdo de Notificações -->
+    <div class="content" id="notifications-content">
+        <h2>Notificações de Vencimento</h2>
+        <div id="notifications-list">
+            <!-- Notificações serão adicionadas dinamicamente -->
+        </div>
+    </div>
+    
+    <div class="footer">
+        <button class="footer-btn" id="scannerBtn">
+            <i class="fas fa-qrcode"></i>
+            <span>Scanner</span>
+        </button>
+        <button class="footer-btn" id="historyBtn">
+            <i class="fas fa-history"></i>
+            <span>Histórico</span>
+        </button>
+        <button class="footer-btn" id="qrcodeBtn">
+            <i class="fas fa-plus-circle"></i>
+            <span>Criar QR</span>
+        </button>
+        <button class="footer-btn" id="notificationsBtn">
+            <i class="fas fa-bell"></i>
+            <span>Alertas</span>
+            <div class="notification-badge" id="notificationBadge" style="display: none;">0</div>
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script>
+        // Elementos da UI
+        const backBtn = document.getElementById('backBtn');
+        const scannerBtn = document.getElementById('scannerBtn');
+        const historyBtn = document.getElementById('historyBtn');
+        const qrcodeBtn = document.getElementById('qrcodeBtn');
+        const notificationsBtn = document.getElementById('notificationsBtn');
+        
+        // Conteúdos
+        const contents = document.querySelectorAll('.content');
+        const homeContent = document.getElementById('home-content');
+        const scannerContent = document.getElementById('scanner-content');
+        const historyContent = document.getElementById('history-content');
+        const qrcodeContent = document.getElementById('qrcode-content');
+        const notificationsContent = document.getElementById('notifications-content');
+        
+        // Elementos do Scanner
+        const videoElement = document.getElementById('qr-video');
+        const canvasElement = document.getElementById('qr-canvas');
+        const startScannerBtn = document.getElementById('startScanner');
+        const stopScannerBtn = document.getElementById('stopScanner');
+        const productInfo = document.getElementById('product-info');
+        const productName = document.getElementById('product-name');
+        const expiryDays = document.getElementById('expiry-days');
+        const expiryLabel = document.getElementById('expiry-label');
+        const expiryDate = document.getElementById('expiry-date');
+        const saveProductBtn = document.getElementById('save-product');
+        
+        // Elementos do Histórico
+        const searchInput = document.getElementById('search-input');
+        const historyList = document.getElementById('history-list');
+        
+        // Elementos de Criação de QR Code
+        const productNameInput = document.getElementById('product-name-input');
+        const expiryDateInput = document.getElementById('expiry-date-input');
+        const generateQRCodeBtn = document.getElementById('generate-qrcode');
+        const qrcodeResult = document.getElementById('qrcode-result');
+        
+        // Elementos de Notificação
+        const notificationsList = document.getElementById('notifications-list');
+        const notificationBadge = document.getElementById('notificationBadge');
+        
+        let stream = null;
+        let scanning = false;
+        let scanInterval = null;
+        let products = JSON.parse(localStorage.getItem('products')) || [];
+        let notifications = JSON.parse(localStorage.getItem('notifications')) || [];
+        
+        // Navegação entre telas
+        function showContent(content) {
+            contents.forEach(c => c.classList.remove('active'));
+            content.classList.add('active');
+            
+            // Mostrar botão de voltar se não for a home
+            backBtn.style.display = content === homeContent ? 'none' : 'block';
+            
+            // Atualizar botões ativos no footer
+            document.querySelectorAll('.footer-btn').forEach(btn => btn.classList.remove('active'));
+            
+            if (content === scannerContent) {
+                scannerBtn.classList.add('active');
+            } else if (content === historyContent) {
+                historyBtn.classList.add('active');
+                updateHistoryList();
+            } else if (content === qrcodeContent) {
+                qrcodeBtn.classList.add('active');
+                // Definir data mínima como hoje
+                const today = new Date().toISOString().split('T')[0];
+                expiryDateInput.min = today;
+            } else if (content === notificationsContent) {
+                notificationsBtn.classList.add('active');
+                updateNotificationsList();
+            }
+            
+            // Parar scanner se estiver ativo
+            if (content !== scannerContent && scanning) {
+                stopScanner();
+            }
+        }
+        
+        // Event Listeners
+        backBtn.addEventListener('click', () => {
+            showContent(homeContent);
+        });
+        
+        scannerBtn.addEventListener('click', () => showContent(scannerContent));
+        historyBtn.addEventListener('click', () => showContent(historyContent));
+        qrcodeBtn.addEventListener('click', () => showContent(qrcodeContent));
+        notificationsBtn.addEventListener('click', () => showContent(notificationsContent));
+        
+        // Scanner de QR Code
+        startScannerBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' }
+                });
+                videoElement.srcObject = stream;
+                startScannerBtn.disabled = true;
+                stopScannerBtn.disabled = false;
+                scanning = true;
+                
+                // Iniciar detecção de QR Code
+                scanInterval = setInterval(scanQRCode, 100);
+            } catch (err) {
+                console.error('Erro ao acessar a câmera:', err);
+                alert('Não foi possível acessar a câmera');
+            }
+        });
+        
+        stopScannerBtn.addEventListener('click', stopScanner);
+        
+        function stopScanner() {
+            if (stream) {
+                clearInterval(scanInterval);
+                stream.getTracks().forEach(track => track.stop());
+                videoElement.srcObject = null;
+                stream = null;
+                startScannerBtn.disabled = false;
+                stopScannerBtn.disabled = true;
+                scanning = false;
+                productInfo.style.display = 'none';
+            }
+        }
+        
+        function scanQRCode() {
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+                const canvasContext = canvasElement.getContext('2d');
+                canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                
+                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    // Simular dados do produto (em um app real, isso viria de uma API)
+                    const productData = parseProductData(code.data);
+                    showProductInfo(productData);
+                    stopScanner();
+                }
+            }
+        }
+        
+        function parseProductData(qrData) {
+            // Em um app real, isso seria uma chamada à API
+            try {
+                const data = JSON.parse(qrData);
+                if (data.name && data.expiryDate) {
+                    return data;
+                }
+            } catch (e) {
+                console.log("QR Code não contém dados formatados, usando padrão");
+            }
+            
+            // Padrão para QR Codes não formatados
+            const randomDays = Math.floor(Math.random() * 30) + 1;
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + randomDays);
+            
+            return {
+                id: Math.random().toString(36).substring(2, 9),
+                name: qrData.includes('leite') ? 'Leite Integral' : 
+                      qrData.includes('arroz') ? 'Arroz Branco' : 
+                      qrData.includes('feijao') ? 'Feijão Carioca' : 'Produto Alimentício',
+                expiryDate: expiryDate.toISOString().split('T')[0],
+                scanDate: new Date().toISOString()
+            };
+        }
+        
+        function showProductInfo(product) {
+            productName.textContent = product.name;
+            
+            const today = new Date();
+            const expiry = new Date(product.expiryDate);
+            const diffTime = expiry - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            expiryDays.textContent = diffDays;
+            expiryDate.textContent = `Vencimento: ${formatDate(expiry)}`;
+            
+            if (diffDays <= 0) {
+                expiryLabel.textContent = 'VENCIDO';
+                expiryDays.className = 'expiry-days expiry-danger';
+            } else if (diffDays <= 3) {
+                expiryLabel.textContent = 'dias para vencer (URGENTE)';
+                expiryDays.className = 'expiry-days expiry-danger';
+            } else if (diffDays <= 7) {
+                expiryLabel.textContent = 'dias para vencer (PRÓXIMO)';
+                expiryDays.className = 'expiry-days expiry-warning';
+            } else {
+                expiryLabel.textContent = 'dias para vencer';
+                expiryDays.className = 'expiry-days expiry-good';
+            }
+            
+            productInfo.style.display = 'block';
+            
+            // Configurar botão de salvar
+            saveProductBtn.onclick = () => {
+                saveProduct(product, diffDays);
+                showContent(historyContent);
+            };
+        }
+        
+        // Criação de QR Code
+        generateQRCodeBtn.addEventListener('click', () => {
+            const name = productNameInput.value.trim();
+            const expiry = expiryDateInput.value;
+            
+            if (!name || !expiry) {
+                alert('Por favor, preencha todos os campos');
+                return;
+            }
+            
+            const productData = {
+                name: name,
+                expiryDate: expiry,
+                generatedDate: new Date().toISOString()
+            };
+            
+            const dataString = JSON.stringify(productData);
+            
+            // Gerar QR Code
+            QRCode.toDataURL(dataString, { width: 300 }, (err, url) => {
+                if (err) {
+                    console.error(err);
+                    alert('Erro ao gerar QR Code');
+                    return;
+                }
+                
+                qrcodeResult.innerHTML = `
+                    <h3>QR Code gerado para:</h3>
+                    <p><strong>${name}</strong> - Validade: ${formatDate(new Date(expiry))}</p>
+                    <img id="qrcode-image" src="${url}" alt="QR Code">
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">Escaneie este QR Code com o app para registrar o produto</p>
+                `;
+                
+                // Adicionar ao histórico
+                addHistoryItem('QR Code', `Gerado para: ${name}`);
+            });
+        });
+        
+        function formatDate(date) {
+            return date.toLocaleDateString('pt-BR');
+        }
+        
+        // Salvar produto no histórico
+        function saveProduct(product, daysToExpiry) {
+            products.unshift({
+                ...product,
+                daysToExpiry: daysToExpiry,
+                notificationSent: false
+            });
+            
+            localStorage.setItem('products', JSON.stringify(products));
+            updateHistoryList();
+            checkForNotifications();
+            
+            // Adicionar ao histórico de ações
+            addHistoryItem('Scanner', `Produto escaneado: ${product.name}`);
+        }
+        
+        // Atualizar lista de histórico
+        function updateHistoryList() {
+            historyList.innerHTML = '';
+            
+            if (products.length === 0) {
+                historyList.innerHTML = '<p>Nenhum produto escaneado ainda</p>';
+                return;
+            }
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredProducts = products.filter(p => 
+                p.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredProducts.length === 0) {
+                historyList.innerHTML = '<p>Nenhum produto encontrado</p>';
+                return;
+            }
+            
+            filteredProducts.forEach(product => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'history-item';
+                
+                const expiryClass = product.daysToExpiry <= 0 ? 'expiry-danger' : 
+                                    product.daysToExpiry <= 3 ? 'expiry-danger' : 
+                                    product.daysToExpiry <= 7 ? 'expiry-warning' : 'expiry-good';
+                
+                itemElement.innerHTML = `
+                    <div class="product-name">${product.name}</div>
+                    <div class="expiry-date ${expiryClass}">
+                        ${product.daysToExpiry <= 0 ? 'VENCIDO' : `${product.daysToExpiry} dias para vencer`}
+                    </div>
+                    <div class="scan-date">Escaneado em ${formatDate(new Date(product.scanDate))}</div>
+                `;
+                historyList.appendChild(itemElement);
+            });
+        }
+        
+        // Adicionar item ao histórico de ações
+        function addHistoryItem(type, content) {
+            const now = new Date();
+            const historyItem = {
+                type,
+                content,
+                date: now.toLocaleString()
+            };
+            
+            // Limitar histórico a 100 itens
+            if (historyItems.length >= 100) {
+                historyItems.pop();
+            }
+            
+            historyItems.unshift(historyItem);
+            localStorage.setItem('actionHistory', JSON.stringify(historyItems));
+        }
+        
+        // Pesquisa no histórico
+        searchInput.addEventListener('input', updateHistoryList);
+        
+        // Notificações
+        function checkForNotifications() {
+            const today = new Date();
+            notifications = [];
+            
+            products.forEach(product => {
+                const expiry = new Date(product.expiryDate);
+                const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+                
+                if (diffDays <= 3 && !product.notificationSent) {
+                    notifications.push({
+                        productId: product.id,
+                        productName: product.name,
+                        daysToExpiry: diffDays,
+                        date: new Date().toISOString()
+                    });
+                    
+                    // Marcar como notificação enviada
+                    product.notificationSent = true;
+                    
+                    // Mostrar alerta se estiver na tela
+                    if (diffDays <= 0) {
+                        alert(`ATENÇÃO: O produto ${product.name} está VENCIDO!`);
+                    } else if (diffDays <= 3) {
+                        alert(`ATENÇÃO: O produto ${product.name} está prestes a vencer (${diffDays} dias)`);
+                    }
+                }
+            });
+            
+            localStorage.setItem('products', JSON.stringify(products));
+            localStorage.setItem('notifications', JSON.stringify(notifications));
+            updateNotificationsBadge();
+            updateNotificationsList();
+        }
+        
+        function updateNotificationsBadge() {
+            if (notifications.length > 0) {
+                notificationBadge.textContent = notifications.length;
+                notificationBadge.style.display = 'flex';
+            } else {
+                notificationBadge.style.display = 'none';
+            }
+        }
+        
+        function updateNotificationsList() {
+            notificationsList.innerHTML = '';
+            
+            if (notifications.length === 0) {
+                notificationsList.innerHTML = '<p>Nenhuma notificação no momento</p>';
+                return;
+            }
+            
+            notifications.forEach(notification => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'history-item';
+                
+                itemElement.innerHTML = `
+                    <div class="product-name">${notification.productName}</div>
+                    <div class="expiry-date expiry-danger">
+                        ${notification.daysToExpiry <= 0 ? 'PRODUTO VENCIDO' : `Vencimento próximo: ${notification.daysToExpiry} dias`}
+                    </div>
+                    <div class="scan-date">Notificação em ${formatDate(new Date(notification.date))}</div>
+                `;
+                notificationsList.appendChild(itemElement);
+            });
+        }
+        
+        // Inicialização
+        let historyItems = JSON.parse(localStorage.getItem('actionHistory')) || [];
+        showContent(homeContent);
+        updateHistoryList();
+        checkForNotifications();
+        
+        // Verificar notificações periodicamente (simulação)
+        setInterval(checkForNotifications, 3600000); // A cada hora
+    </script>
+</body>
+</html>
