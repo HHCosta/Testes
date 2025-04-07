@@ -289,6 +289,79 @@
         .btn-group .btn {
             flex: 1;
         }
+        
+        /* Modal de Scanner */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            margin: 0;
+            color: #d32f2f;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 15px;
+        }
+        
+        .modal-footer {
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            text-align: right;
+        }
+        
+        /* Instruções de permissão da câmera */
+        .camera-permission-denied {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .browser-instructions {
+            text-align: left;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        
+        .camera-error {
+            padding: 20px;
+            text-align: center;
+            color: #d32f2f;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
@@ -311,18 +384,8 @@
     
     <!-- Conteúdo do Scanner -->
     <div class="content" id="scanner-content">
-        <h2>Escaneie o QR Code</h2>
-        <div id="scanner-container">
-            <video id="qr-video"></video>
-            <canvas id="qr-canvas"></canvas>
-            <div class="scanner-overlay">
-                <div class="scanner-line"></div>
-            </div>
-        </div>
-        <div class="btn-group">
-            <button class="btn btn-primary" id="startScanner">Iniciar Scanner</button>
-            <button class="btn btn-secondary" id="stopScanner" disabled>Parar Scanner</button>
-        </div>
+        <h2>Escaneie o QR Code do produto</h2>
+        <button class="btn btn-primary" id="startScannerBtn">Iniciar Scanner</button>
         
         <div class="product-info" id="product-info">
             <h3 id="product-name">Nome do Produto</h3>
@@ -385,6 +448,24 @@
         </button>
     </div>
 
+    <!-- Modal do Scanner -->
+    <div id="qrScannerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Escanear QR Code</h2>
+                <button class="modal-close" id="closeScannerModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="qrScannerContainer" style="width: 100%; height: 300px; position: relative; background-color: black;">
+                    <!-- O conteúdo será inserido dinamicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelScannerBtn" class="btn btn-secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script>
@@ -404,10 +485,7 @@
         const notificationsContent = document.getElementById('notifications-content');
         
         // Elementos do Scanner
-        const videoElement = document.getElementById('qr-video');
-        const canvasElement = document.getElementById('qr-canvas');
-        const startScannerBtn = document.getElementById('startScanner');
-        const stopScannerBtn = document.getElementById('stopScanner');
+        const startScannerBtn = document.getElementById('startScannerBtn');
         const productInfo = document.getElementById('product-info');
         const productName = document.getElementById('product-name');
         const expiryDays = document.getElementById('expiry-days');
@@ -429,11 +507,18 @@
         const notificationsList = document.getElementById('notifications-list');
         const notificationBadge = document.getElementById('notificationBadge');
         
-        let stream = null;
-        let scanning = false;
-        let scanInterval = null;
+        // Elementos do Modal de Scanner
+        const qrScannerModal = document.getElementById('qrScannerModal');
+        const closeScannerModal = document.getElementById('closeScannerModal');
+        const cancelScannerBtn = document.getElementById('cancelScannerBtn');
+        const qrScannerContainer = document.getElementById('qrScannerContainer');
+        
+        // Variáveis de estado
+        let qrScannerInterval = null;
+        let qrScannerStream = null;
         let products = JSON.parse(localStorage.getItem('products')) || [];
         let notifications = JSON.parse(localStorage.getItem('notifications')) || [];
+        let historyItems = JSON.parse(localStorage.getItem('actionHistory')) || [];
         
         // Navegação entre telas
         function showContent(content) {
@@ -460,11 +545,6 @@
                 notificationsBtn.classList.add('active');
                 updateNotificationsList();
             }
-            
-            // Parar scanner se estiver ativo
-            if (content !== scannerContent && scanning) {
-                stopScanner();
-            }
         }
         
         // Event Listeners
@@ -477,59 +557,178 @@
         qrcodeBtn.addEventListener('click', () => showContent(qrcodeContent));
         notificationsBtn.addEventListener('click', () => showContent(notificationsContent));
         
-        // Scanner de QR Code
-        startScannerBtn.addEventListener('click', async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' }
-                });
-                videoElement.srcObject = stream;
-                startScannerBtn.disabled = true;
-                stopScannerBtn.disabled = false;
-                scanning = true;
-                
-                // Iniciar detecção de QR Code
-                scanInterval = setInterval(scanQRCode, 100);
-            } catch (err) {
-                console.error('Erro ao acessar a câmera:', err);
-                alert('Não foi possível acessar a câmera');
-            }
+        // Iniciar scanner quando clicar no botão
+        startScannerBtn.addEventListener('click', () => {
+            startQRScanner('qrScannerModal', 'Escanear Produto', handleQRCodeScanned);
         });
         
-        stopScannerBtn.addEventListener('click', stopScanner);
+        // Fechar modal de scanner
+        closeScannerModal.addEventListener('click', stopQRScanner);
+        cancelScannerBtn.addEventListener('click', stopQRScanner);
         
-        function stopScanner() {
-            if (stream) {
-                clearInterval(scanInterval);
-                stream.getTracks().forEach(track => track.stop());
-                videoElement.srcObject = null;
-                stream = null;
-                startScannerBtn.disabled = false;
-                stopScannerBtn.disabled = true;
-                scanning = false;
-                productInfo.style.display = 'none';
-            }
+        // Função para lidar com o QR Code escaneado
+        function handleQRCodeScanned(data) {
+            const productData = parseProductData(data);
+            showProductInfo(productData);
+            showContent(scannerContent);
         }
         
-        function scanQRCode() {
-            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-                canvasElement.width = videoElement.videoWidth;
-                canvasElement.height = videoElement.videoHeight;
-                const canvasContext = canvasElement.getContext('2d');
-                canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-                
-                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                
-                if (code) {
-                    // Simular dados do produto (em um app real, isso viria de uma API)
-                    const productData = parseProductData(code.data);
-                    showProductInfo(productData);
-                    stopScanner();
+        // Funções do Scanner de QR Code (baseado no código fornecido)
+        async function checkCameraPermission() {
+            // Safari não suporta a API de Permissões para câmera
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+                    return permissionStatus.state;
+                } catch (e) {
+                    console.warn('Permissions API not working, falling back to direct access');
+                    return 'prompt';
                 }
             }
+            return 'prompt'; // Default para tentar solicitar
         }
         
+        function showCameraPermissionInstructions(successScanCallback) {
+            qrScannerContainer.innerHTML = `
+                <div class="camera-permission-denied">
+                    <h3 class="sub-section-title no-margin">Por favor, permita o acesso à câmera nas configurações do seu navegador.</h3>
+                    <div class="browser-instructions">
+                        <p><strong>Android:</strong> Configurações > Aplicativos > Navegador > Permissões</p>
+                        <p><strong>Chrome/Edge:</strong> Clique no ícone de câmera na barra de endereço</p>
+                        <p><strong>Safari:</strong> Preferências > Websites > Câmera</p>
+                    </div>
+                    <button id="retryCameraButton" class="btn btn-primary">
+                        Tentar Novamente
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('retryCameraButton').addEventListener('click', async function() {
+                startCameraStream(successScanCallback);
+            });
+        }
+        
+        function startQRScanning(videoElement, successScanCallback) {
+            qrScannerInterval = setInterval(() => {
+                if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: 'dontInvert',
+                    });
+        
+                    if (code) {
+                        stopQRScanner();
+                        qrScannerModal.style.display = 'none';
+        
+                        if(successScanCallback != null) {
+                            successScanCallback(code.data);
+                        }
+                    }
+                }
+            }, 200);
+        }
+        
+        function startCameraStream(successScanCallback) {
+            qrScannerContainer.innerHTML = `
+                <video id="qrScannerVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                <div id="qrScannerOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 2px solid rgba(0, 255, 0, 0.5); pointer-events: none;"></div>
+            `;
+        
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            }).then(function(stream) {
+                qrScannerStream = stream;
+                const videoElement = document.getElementById('qrScannerVideo');
+                videoElement.srcObject = stream;
+                videoElement.setAttribute('playsinline', true);
+                videoElement.setAttribute('autoplay', true);
+                videoElement.setAttribute('muted', true);
+                videoElement.play();
+        
+                // Iniciar escaneamento QR
+                startQRScanning(videoElement, successScanCallback);
+            }).catch(function(err) {
+                console.error('Erro ao acessar a câmera:', err);
+                if (err.name === 'NotAllowedError') {
+                    showCameraPermissionInstructions(successScanCallback);
+                } else {
+                    qrScannerContainer.innerHTML = `
+                        <div class="camera-error">
+                            <i class="fas fa-exclamation-triangle fa-3x"></i>
+                            <h3>Erro na Câmera</h3>
+                            <p>${err.message || 'Não foi possível acessar a câmera'}</p>
+                            <button id="retryCameraButton" class="btn btn-primary">
+                                Tentar Novamente
+                            </button>
+                        </div>
+                    `;
+        
+                    // Evento de clique para tentar novamente
+                    document.getElementById('retryCameraButton').addEventListener('click', function() {
+                        startCameraStream(successScanCallback);
+                    });
+                }
+            });
+        }
+        
+        function stopQRScanner() {
+            if (qrScannerInterval) {
+                clearInterval(qrScannerInterval);
+                qrScannerInterval = null;
+            }
+        
+            if (qrScannerStream) {
+                qrScannerStream.getTracks().forEach(track => track.stop());
+                qrScannerStream = null;
+            }
+        
+            const videoElement = document.getElementById('qrScannerVideo');
+            if (videoElement) {
+                videoElement.srcObject = null;
+            }
+            
+            qrScannerModal.style.display = 'none';
+        }
+        
+        function startQRScanner(modalId, modalTitle, successScanCallback) {
+            // Verificar se o navegador suporta a API mediaDevices
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('O acesso à câmera não é suportado no seu navegador.');
+                return;
+            }
+        
+            // Abrir o modal
+            qrScannerModal.style.display = 'flex';
+        
+            // Primeiro verificar o estado da permissão
+            checkCameraPermission().then(permissionState => {
+                if (permissionState === 'denied') {
+                    showCameraPermissionInstructions(successScanCallback);
+                    return;
+                }
+                
+                if (permissionState === 'prompt') {
+                    // Irá disparar o prompt de permissão quando getUserMedia for chamado
+                }
+                
+                startCameraStream(successScanCallback);
+            }).catch(err => {
+                console.error('Erro ao verificar permissão da câmera:', err);
+                startCameraStream(successScanCallback); // Tentar de qualquer forma se a verificação falhar
+            });
+        }
+        
+        // Processar dados do produto do QR Code
         function parseProductData(qrData) {
             // Em um app real, isso seria uma chamada à API
             try {
@@ -775,7 +974,6 @@
         }
         
         // Inicialização
-        let historyItems = JSON.parse(localStorage.getItem('actionHistory')) || [];
         showContent(homeContent);
         updateHistoryList();
         checkForNotifications();
